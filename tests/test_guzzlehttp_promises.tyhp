@@ -1,10 +1,5 @@
 <?tyhp
 
-function test_guzzlehttp_promises_package_loads(): bool
-{
-    return true;
-}
-
 function test_guzzle_promise_wait(\GuzzleHttp\Promise\PromiseInterface<string, \Throwable> $promise): string
 {
     return $promise->wait(true);

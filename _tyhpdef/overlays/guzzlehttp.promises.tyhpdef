@@ -1,9 +1,9 @@
 <?tyhpdef
 /**
  * LAYER 3 (hand overlay) — Tyhp-authored. Never regenerated.
- * Path: `_tyhpdef/overlays/*.tyhpdef` (not under overlays/stubs/).
- * Default generic parameters, `wait($unwrap)` overloads, and inspection structs for the promise API.
- * `Is` is aliased: the PHP class name is the Tyhp `is` keyword.
+ * Path: _tyhpdef/overlays/*.tyhpdef  (not under overlays/stubs/)
+ * Default generic parameters, `wait($unwrap)` overloads, inspection structs,
+ * and `GuzzleHttp\Promise\Is` (PHP class name `Is` is the Tyhp `is` keyword).
  */
 
 namespace GuzzleHttp\Promise {
@@ -22,6 +22,21 @@ namespace GuzzleHttp\Promise {
     };
 
     /**
+     * Internal non-serialize trait used by public promise types. Layer 1 omits `@internal`.
+     */
+    trait NonSerializableTrait {
+        /**
+         * @return array<int|string, mixed>
+         */
+        public function __serialize(): array<int|string, mixed>;
+
+        /**
+         * @param array<int|string, mixed> $data
+         */
+        public function __unserialize(array<int|string, mixed> $data): void;
+    }
+
+    /**
      * Overlay: default type parameters so unparameterized `PromiseInterface` is usable.
      */
     // @overlay-against: interface PromiseInterface
@@ -36,7 +51,7 @@ namespace GuzzleHttp\Promise {
          * @param (callable(TValue): TFulfilledValue|\GuzzleHttp\Promise\PromiseInterface<TFulfilledValue, TFulfilledReason>)|null $onFulfilled
          * @param (callable(TReason): TRejectedValue|\GuzzleHttp\Promise\PromiseInterface<TRejectedValue, TRejectedReason>)|null $onRejected
          */
-        // @overlay-against: function then(callable $onFulfilled, callable $onRejected): \GuzzleHttp\Promise\PromiseInterface
+        // @overlay-against: function then(callable|null $onFulfilled, callable|null $onRejected): \GuzzleHttp\Promise\PromiseInterface
         public function then<TFulfilledValue = mixed, TFulfilledReason = mixed, TRejectedValue = mixed, TRejectedReason = mixed>(
             ?callable(TValue): TFulfilledValue|\GuzzleHttp\Promise\PromiseInterface<TFulfilledValue, TFulfilledReason> $onFulfilled = null,
             ?callable(TReason): TRejectedValue|\GuzzleHttp\Promise\PromiseInterface<TRejectedValue, TRejectedReason> $onRejected = null
@@ -93,7 +108,7 @@ namespace GuzzleHttp\Promise {
     /**
      * Overlay: default type parameters and implements the parameterized interface.
      */
-    // @overlay-against: class Promise implements \GuzzleHttp\Promise\PromiseInterface
+    // @overlay-against: class Promise implements \GuzzleHttp\Promise\PromiseInterface, \GuzzleHttp\Promise\NonSerializableTrait
     partial class Promise<TValue = mixed, TReason = mixed> implements \GuzzleHttp\Promise\PromiseInterface<TValue, TReason>;
 
     /**
@@ -111,13 +126,13 @@ namespace GuzzleHttp\Promise {
     /**
      * Overlay: default type parameters and implements the parameterized interface.
      */
-    // @overlay-against: class Coroutine implements \GuzzleHttp\Promise\PromiseInterface
+    // @overlay-against: class Coroutine implements \GuzzleHttp\Promise\PromiseInterface, \GuzzleHttp\Promise\NonSerializableTrait
     partial class Coroutine<TValue = mixed, TReason = mixed> implements \GuzzleHttp\Promise\PromiseInterface<TValue, TReason>;
 
     /**
      * `$generatorFn` is invoked with no arguments and must return a generator.
      */
-    // @overlay-against: class Coroutine implements \GuzzleHttp\Promise\PromiseInterface
+    // @overlay-against: class Coroutine implements \GuzzleHttp\Promise\PromiseInterface, \GuzzleHttp\Promise\NonSerializableTrait
     partial class Coroutine {
         // @overlay-against: function of(callable $generatorFn): self
         public static function of(callable(): \Generator $generatorFn): self;
@@ -143,26 +158,20 @@ namespace GuzzleHttp\Promise {
         /**
          * @param \GuzzleHttp\Promise\PromiseInterface<TValue, TReason> $value Already a Guzzle promise.
          */
-        // @overlay-against: function promiseFor(mixed $value): \GuzzleHttp\Promise\PromiseInterface
+        // @overlay-against: function promiseFor(TValue|TPromise $value): \GuzzleHttp\Promise\PromiseInterface
         public static function promiseFor<TValue, TReason>(\GuzzleHttp\Promise\PromiseInterface<TValue, TReason> $value): \GuzzleHttp\Promise\PromiseInterface<TValue, TReason>;
 
         /**
          * @param TValue $value Plain value wrapped as a fulfilled promise.
          */
-        // @overlay-against: function promiseFor(mixed $value): \GuzzleHttp\Promise\PromiseInterface
+        // @overlay-against: function promiseFor(TValue|TPromise $value): \GuzzleHttp\Promise\PromiseInterface
         public static function promiseFor<TValue>(TValue $value): \GuzzleHttp\Promise\FulfilledPromise<TValue, mixed>;
 
         /**
          * @param iterable<TKey, TValue> $value Arrays, iterators, and traversables.
          */
-        // @overlay-against: function iterFor(mixed $value): \Iterator
+        // @overlay-against: function iterFor(iterable $value): \Iterator
         public static function iterFor<TKey extends int|string = int|string, TValue = mixed>(iterable<TKey, TValue> $value): \Iterator<TKey, TValue>;
-
-        /**
-         * @param mixed $value Non-iterable value. Layer 1 accepts mixed, not only iterable.
-         */
-        // @overlay-against: function iterFor(mixed $value): \Iterator
-        public static function iterFor(mixed $value): \Iterator;
     }
 
     /**
@@ -183,14 +192,37 @@ namespace GuzzleHttp\Promise {
         public static function inspect<TValue, TReason>(\GuzzleHttp\Promise\PromiseInterface<TValue, TReason> $promise): \GuzzleHttp\Promise\PromiseInspection<TValue, TReason>;
 
         /**
-         * @param array<int, \GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises
+         * @param iterable<TKey, \GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises
          */
-        // @overlay-against: function inspectAll(array $promises): array
-        public static function inspectAll<TValue = mixed, TReason = mixed>(
-            array<int, \GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises
-        ): array<int, \GuzzleHttp\Promise\PromiseInspection<TValue, TReason>>;
+        // @overlay-against: function inspectAll(iterable $promises): array
+        public static function inspectAll<TKey extends int|string = int|string, TValue = mixed, TReason = mixed>(
+            iterable<TKey, \GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises
+        ): array<TKey, \GuzzleHttp\Promise\PromiseInspection<TValue, TReason>>;
     }
 
-    // @overlay-against: class Is
-    partial class \GuzzleHttp\Promise\Is as GuzzleHttpPromiseIs;
+    /**
+     * PHP class `GuzzleHttp\Promise\Is`. Tyhp's `is` keyword cannot be a Tyhp class
+     * identifier, so the Tyhp name is `GuzzleHttpPromiseIs` while PHP emit stays `Is`.
+     */
+    class \GuzzleHttp\Promise\Is as GuzzleHttpPromiseIs {
+        /**
+         * Returns true if a promise is pending.
+         */
+        public static function pending(\GuzzleHttp\Promise\PromiseInterface $promise): bool;
+
+        /**
+         * Returns true if a promise is fulfilled or rejected.
+         */
+        public static function settled(\GuzzleHttp\Promise\PromiseInterface $promise): bool;
+
+        /**
+         * Returns true if a promise is fulfilled.
+         */
+        public static function fulfilled(\GuzzleHttp\Promise\PromiseInterface $promise): bool;
+
+        /**
+         * Returns true if a promise is rejected.
+         */
+        public static function rejected(\GuzzleHttp\Promise\PromiseInterface $promise): bool;
+    }
 }

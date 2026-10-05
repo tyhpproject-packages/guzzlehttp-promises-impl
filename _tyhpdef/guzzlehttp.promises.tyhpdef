@@ -50,58 +50,101 @@ namespace GuzzleHttp\Promise {
     *     // Outputs "abc"
     *     $promise->then(function ($v) { echo $v; });
     *
-    * @param callable $generatorFn Generator function to wrap into a promise.
-    * @return Promise
+    * @template TValue
+    * @template TReason
+    * @implements PromiseInterface<TValue, TReason>
     * @see https://github.com/petkaantonov/bluebird/blob/master/API.md#generators inspiration
     * @generated
     */
-    final class Coroutine implements \GuzzleHttp\Promise\PromiseInterface {
+    final class Coroutine<TValue, TReason> implements \GuzzleHttp\Promise\PromiseInterface {
+        use \GuzzleHttp\Promise\NonSerializableTrait;
+        /**
+        * @param callable $generatorFn
+        * @generated
+        */
         public function __construct(callable $generatorFn): void;
         /**
         * Create a new coroutine.
         *
+        * @param callable $generatorFn
+        * @return self
         * @generated
         */
         public static function of(callable $generatorFn): self;
-        public function then(?callable $onFulfilled = null, ?callable $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
-        public function otherwise(callable $onRejected): \GuzzleHttp\Promise\PromiseInterface;
+        /**
+        * @template TFulfilledValue
+        * @template TFulfilledReason
+        * @template TRejectedValue
+        * @template TRejectedReason
+        * @param callable|null $onFulfilled Invoked when the promise fulfills.
+        * @param callable|null $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface PromiseInterface<($onFulfilled is null ? TValue : TFulfilledValue)|($onRejected is null ? never : TRejectedValue), ($onFulfilled is null ? never : TFulfilledReason|\Throwable)|($onRejected is null ? TReason : TRejectedReason|\Throwable)>
+        * @generated
+        */
+        public function then<TFulfilledValue, TFulfilledReason, TRejectedValue, TRejectedReason>(callable|null $onFulfilled = null, callable|null $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
+        /**
+        * @template TRejectedValue
+        * @template TRejectedReason
+        * @param callable $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface
+        * @generated
+        */
+        public function otherwise<TRejectedValue, TRejectedReason>(callable $onRejected): \GuzzleHttp\Promise\PromiseInterface;
         public function wait(bool $unwrap = true): mixed;
         public function getState(): string;
-        public function resolve(mixed $value): void;
+        public function resolve(mixed $value = null): void;
         public function reject(mixed $reason): void;
         public function cancel(): void;
     }
     final class Create {
         /**
-        * Creates a promise for a value if the value is not a promise.
+        * Returns `$value` when it is already a Guzzle promise, wraps foreign
         *
-        * @param mixed $value Promise or value.
+        * thenables in a Guzzle promise, or returns a fulfilled promise for plain
+        * values.
+        *
+        * @template TValue
+        * @template TPromise of PromiseInterface<mixed, mixed>
+        * @param TValue|TPromise $value Promise or value.
+        * @return \GuzzleHttp\Promise\PromiseInterface ($value is PromiseInterface ? TPromise : FulfilledPromise<TValue, never>)
         * @generated
         */
-        public static function promiseFor(mixed $value): \GuzzleHttp\Promise\PromiseInterface;
+        public static function promiseFor<TValue, TPromise extends PromiseInterface<mixed, mixed>>(TValue|TPromise $value): \GuzzleHttp\Promise\PromiseInterface;
         /**
-        * Creates a rejected promise for a reason if the reason is not a promise.
+        * Returns `$reason` when it is already a promise, or returns a rejected
         *
-        * If the provided reason is a promise, then it is returned as-is.
+        * promise for plain reasons.
         *
-        * @param mixed $reason Promise or reason.
+        * @template TReason
+        * @template TValue
+        * @template TPromise of PromiseInterface<mixed, mixed>
+        * @param TReason|TPromise $reason Promise or reason.
+        * @return \GuzzleHttp\Promise\PromiseInterface ($reason is PromiseInterface ? TPromise : RejectedPromise<TValue, TReason>)
         * @generated
         */
-        public static function rejectionFor(mixed $reason): \GuzzleHttp\Promise\PromiseInterface;
+        public static function rejectionFor<TReason, TValue, TPromise extends PromiseInterface<mixed, mixed>>(TReason|TPromise $reason): \GuzzleHttp\Promise\PromiseInterface;
         /**
-        * Create an exception for a rejected promise value.
+        * Returns throwable reasons as-is, or wraps non-throwable reasons in
         *
-        * @param mixed $reason
+        * `RejectionException`.
+        *
+        * @template TReason
+        * @param TReason $reason
         * @generated
         */
-        public static function exceptionFor(mixed $reason): \Throwable;
+        public static function exceptionFor<TReason>(TReason $reason): \Throwable;
         /**
-        * Returns an iterator for the given value.
+        * Returns an iterator for arrays, iterators, iterator aggregates, and
         *
-        * @param mixed $value
+        * traversables.
+        *
+        * @template TKey of mixed
+        * @template TValue
+        * @param iterable<TKey, TValue> $value
+        * @return \Iterator
         * @generated
         */
-        public static function iterFor(mixed $value): \Iterator;
+        public static function iterFor<TKey extends mixed, TValue>(iterable<TKey, TValue> $value): \Iterator;
     }
     final class Each {
         /**
@@ -110,18 +153,28 @@ namespace GuzzleHttp\Promise {
         * is fulfilled with a null value when the iterator has been consumed or
         * the aggregate promise has been fulfilled or rejected.
         * 
-        * $onFulfilled is a function that accepts the fulfilled value, iterator
-        * index, and the aggregate promise. The callback can invoke any necessary
+        * $onFulfilled is a function that accepts the fulfilled value, iterable
+        * key, and the aggregate promise. The callback can invoke any necessary
         * side effects and choose to resolve or reject the aggregate if needed.
         * 
-        * $onRejected is a function that accepts the rejection reason, iterator
-        * index, and the aggregate promise. The callback can invoke any necessary
+        * $onRejected is a function that accepts the rejection reason, iterable
+        * key, and the aggregate promise. The callback can invoke any necessary
         * side effects and choose to resolve or reject the aggregate if needed.
+        * 
+        * The config array accepts a concurrency option matching {@see ofLimit}.
+        * Other config keys are ignored by this wrapper.
         *
-        * @param mixed $iterable Iterator or array to iterate over.
+        * @template TKey of mixed
+        * @template TValue
+        * @template TReason
+        * @param iterable<TKey, TValue|PromiseInterface<TValue, TReason>> $iterable Iterator or array to iterate over.
+        * @param callable|null $onFulfilled
+        * @param callable|null $onRejected
+        * @param array $config Configuration options.
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
-        public static function of(mixed $iterable, ?callable $onFulfilled = null, ?callable $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
+        public static function of<TKey extends mixed, TValue, TReason>(iterable<TKey, TValue|\GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $iterable, callable|null $onFulfilled = null, callable|null $onRejected = null, array $config = []): \GuzzleHttp\Promise\PromiseInterface;
         /**
         * Like of, but only allows a certain number of outstanding promises at any
         *
@@ -129,34 +182,47 @@ namespace GuzzleHttp\Promise {
         * 
         * $concurrency may be an integer or a function that accepts the number of
         * pending promises and returns a numeric concurrency limit value to allow
-        * for dynamic a concurrency size.
+        * for a dynamic concurrency size.
         *
-        * @param mixed $iterable
+        * @template TKey of mixed
+        * @template TValue
+        * @template TReason
+        * @param iterable<TKey, TValue|PromiseInterface<TValue, TReason>> $iterable
         * @param int|callable $concurrency
+        * @param callable|null $onFulfilled
+        * @param callable|null $onRejected
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
-        public static function ofLimit(mixed $iterable, int|callable $concurrency, ?callable $onFulfilled = null, ?callable $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
+        public static function ofLimit<TKey extends mixed, TValue, TReason>(iterable<TKey, TValue|\GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $iterable, int|callable $concurrency, callable|null $onFulfilled = null, callable|null $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
         /**
-        * Like limit, but ensures that no promise in the given $iterable argument
+        * Like ofLimit, but rejects the aggregate promise on the first rejection.
         *
-        * is rejected. If any promise is rejected, then the aggregate promise is
-        * rejected with the encountered rejection.
-        *
-        * @param mixed $iterable
+        * @template TKey of mixed
+        * @template TValue
+        * @template TReason
+        * @param iterable<TKey, TValue|PromiseInterface<TValue, TReason>> $iterable
         * @param int|callable $concurrency
+        * @param callable|null $onFulfilled
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
-        public static function ofLimitAll(mixed $iterable, int|callable $concurrency, ?callable $onFulfilled = null): \GuzzleHttp\Promise\PromiseInterface;
+        public static function ofLimitAll<TKey extends mixed, TValue, TReason>(iterable<TKey, TValue|\GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $iterable, int|callable $concurrency, callable|null $onFulfilled = null): \GuzzleHttp\Promise\PromiseInterface;
     }
     /**
     * Represents a promise that iterates over many promises and invokes
     *
     * side-effect functions in the process.
     *
+    * @template TKey of mixed
+    * @template TValue
+    * @template TReason
+    * @implements PromisorInterface<mixed, mixed>
     * @final
     * @generated
     */
-    class EachPromise implements \GuzzleHttp\Promise\PromisorInterface {
+    class EachPromise<TKey extends mixed, TValue, TReason> implements \GuzzleHttp\Promise\PromisorInterface {
+        use \GuzzleHttp\Promise\NonSerializableTrait;
         /**
         * Configuration hash can include the following key value pairs:
         *
@@ -175,13 +241,13 @@ namespace GuzzleHttp\Promise {
         *   allowed number of outstanding concurrently executing promises,
         *   creating a capped pool of promises. There is no limit by default.
         *
-        * @param mixed $iterable Promises or values to iterate.
+        * @param iterable<TKey, TValue|PromiseInterface<TValue, TReason>> $iterable Promises or values to iterate.
         * @param array $config Configuration options
         * @generated
         */
-        public function __construct(mixed $iterable, array $config = []): void;
+        public function __construct(iterable<TKey, TValue|\GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $iterable, array $config = []): void;
         /**
-        * @psalm-suppress InvalidNullableReturnType
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
         public function promise(): \GuzzleHttp\Promise\PromiseInterface;
@@ -192,65 +258,78 @@ namespace GuzzleHttp\Promise {
     * Thenning off of this promise will invoke the onFulfilled callback
     * immediately and ignore other callbacks.
     *
+    * @template TValue
+    * @template TReason
+    * @implements PromiseInterface<TValue, TReason>
     * @final
     * @generated
     */
-    class FulfilledPromise implements \GuzzleHttp\Promise\PromiseInterface {
+    class FulfilledPromise<TValue, TReason> implements \GuzzleHttp\Promise\PromiseInterface {
         /**
-        * @param mixed $value
+        * @param TValue $value
         * @generated
         */
-        public function __construct(mixed $value): void;
-        public function then(?callable $onFulfilled = null, ?callable $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
+        public function __construct(TValue $value): void;
+        /**
+        * @template TFulfilledValue
+        * @template TFulfilledReason
+        * @template TRejectedValue
+        * @template TRejectedReason
+        * @param callable|null $onFulfilled Invoked when the promise fulfills.
+        * @param callable|null $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface ($onFulfilled is null ? self<TValue, TReason> : PromiseInterface<TFulfilledValue, TFulfilledReason|\Throwable>)
+        * @generated
+        */
+        public function then<TFulfilledValue, TFulfilledReason, TRejectedValue, TRejectedReason>(callable|null $onFulfilled = null, callable|null $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
+        /**
+        * @param callable $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface
+        * @generated
+        */
         public function otherwise(callable $onRejected): \GuzzleHttp\Promise\PromiseInterface;
         public function wait(bool $unwrap = true): mixed;
         public function getState(): string;
-        public function resolve(mixed $value): void;
+        public function resolve(mixed $value = null): void;
         public function reject(mixed $reason): void;
         public function cancel(): void;
-    }
-    final class \GuzzleHttp\Promise\Is {
-        /**
-        * Returns true if a promise is pending.
-        *
-        * @generated
-        */
-        public static function pending(\GuzzleHttp\Promise\PromiseInterface $promise): bool;
-        /**
-        * Returns true if a promise is fulfilled or rejected.
-        *
-        * @generated
-        */
-        public static function settled(\GuzzleHttp\Promise\PromiseInterface $promise): bool;
-        /**
-        * Returns true if a promise is fulfilled.
-        *
-        * @generated
-        */
-        public static function fulfilled(\GuzzleHttp\Promise\PromiseInterface $promise): bool;
-        /**
-        * Returns true if a promise is rejected.
-        *
-        * @generated
-        */
-        public static function rejected(\GuzzleHttp\Promise\PromiseInterface $promise): bool;
     }
     /**
     * Promises/A+ implementation that avoids recursion when possible.
     *
+    * @template TValue
+    * @template TReason
+    * @implements PromiseInterface<TValue, TReason>
     * @see https://promisesaplus.com/
     * @final
     * @generated
     */
-    class Promise implements \GuzzleHttp\Promise\PromiseInterface {
+    class Promise<TValue, TReason> implements \GuzzleHttp\Promise\PromiseInterface {
+        use \GuzzleHttp\Promise\NonSerializableTrait;
         /**
-        * @param callable $waitFn Fn that when invoked resolves the promise.
-        * @param callable $cancelFn Fn that when invoked cancels the promise.
+        * @param callable|null $waitFn Fn that when invoked resolves the promise.
+        * @param callable|null $cancelFn Fn that when invoked cancels the promise.
         * @generated
         */
-        public function __construct(callable $waitFn = null, callable $cancelFn = null): void;
-        public function then(?callable $onFulfilled = null, ?callable $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
-        public function otherwise(callable $onRejected): \GuzzleHttp\Promise\PromiseInterface;
+        public function __construct(callable|null $waitFn = null, callable|null $cancelFn = null): void;
+        /**
+        * @template TFulfilledValue
+        * @template TFulfilledReason
+        * @template TRejectedValue
+        * @template TRejectedReason
+        * @param callable|null $onFulfilled Invoked when the promise fulfills.
+        * @param callable|null $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface PromiseInterface<($onFulfilled is null ? TValue : TFulfilledValue)|($onRejected is null ? never : TRejectedValue), ($onFulfilled is null ? never : TFulfilledReason|\Throwable)|($onRejected is null ? TReason : TRejectedReason|\Throwable)>
+        * @generated
+        */
+        public function then<TFulfilledValue, TFulfilledReason, TRejectedValue, TRejectedReason>(callable|null $onFulfilled = null, callable|null $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
+        /**
+        * @template TRejectedValue
+        * @template TRejectedReason
+        * @param callable $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface
+        * @generated
+        */
+        public function otherwise<TRejectedValue, TRejectedReason>(callable $onRejected): \GuzzleHttp\Promise\PromiseInterface;
         public function wait(bool $unwrap = true): mixed;
         public function getState(): string;
         public function cancel(): void;
@@ -258,7 +337,7 @@ namespace GuzzleHttp\Promise {
         * @psalm-suppress RedundantCondition
         * @generated
         */
-        public function resolve(mixed $value): void;
+        public function resolve(mixed $value = null): void;
         public function reject(mixed $reason): void;
     }
     /**
@@ -268,10 +347,12 @@ namespace GuzzleHttp\Promise {
     * which registers callbacks to receive either a promise’s eventual value or
     * the reason why the promise cannot be fulfilled.
     *
+    * @template TValue
+    * @template TReason
     * @see https://promisesaplus.com/
     * @generated
     */
-    interface PromiseInterface {
+    interface PromiseInterface<TValue, TReason> {
         public const string PENDING ?? 'pending';
         public const string FULFILLED ?? 'fulfilled';
         public const string REJECTED ?? 'rejected';
@@ -280,11 +361,16 @@ namespace GuzzleHttp\Promise {
         *
         * a new promise resolving to the return value of the called handler.
         *
-        * @param callable $onFulfilled Invoked when the promise fulfills.
-        * @param callable $onRejected Invoked when the promise is rejected.
+        * @template TFulfilledValue
+        * @template TFulfilledReason
+        * @template TRejectedValue
+        * @template TRejectedReason
+        * @param callable|null $onFulfilled Invoked when the promise fulfills.
+        * @param callable|null $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface PromiseInterface<($onFulfilled is null ? TValue : TFulfilledValue)|($onRejected is null ? never : TRejectedValue), ($onFulfilled is null ? never : TFulfilledReason|\Throwable)|($onRejected is null ? TReason : TRejectedReason|\Throwable)>
         * @generated
         */
-        public function then(callable $onFulfilled = null, callable $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
+        public function then<TFulfilledValue, TFulfilledReason, TRejectedValue, TRejectedReason>(callable|null $onFulfilled = null, callable|null $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
         /**
         * Appends a rejection handler callback to the promise, and returns a new
         *
@@ -292,35 +378,49 @@ namespace GuzzleHttp\Promise {
         * or to its original fulfillment value if the promise is instead
         * fulfilled.
         *
+        * @template TRejectedValue
+        * @template TRejectedReason
         * @param callable $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
-        public function otherwise(callable $onRejected): \GuzzleHttp\Promise\PromiseInterface;
+        public function otherwise<TRejectedValue, TRejectedReason>(callable $onRejected): \GuzzleHttp\Promise\PromiseInterface;
         /**
         * Get the state of the promise ("pending", "rejected", or "fulfilled").
         *
         * The three states can be checked against the constants defined on
         * PromiseInterface: PENDING, FULFILLED, and REJECTED.
+        * 
+        * The state describes how this promise was settled, not the eventual
+        * outcome: a promise that was resolved with another promise, directly or
+        * by returning one from a then() handler, reports FULFILLED while the
+        * inner promise may still be pending, and wait() can still throw if the
+        * inner promise rejects. Poll the state only on promises settled with
+        * plain values, or call wait() first.
         *
+        * @return string
+        * @see https://github.com/guzzle/promises/issues/101
         * @generated
         */
         public function getState(): string;
         /**
-        * Resolve the promise with the given value.
+        * Resolve the promise with the given value, or with null if no value is given.
         *
-        * @param mixed $value
-        * @throws \RuntimeException if the promise is already resolved.
+        * @param TValue|PromiseInterface<TValue, TReason>|null $value
+        * @throws \LogicException if the promise is already settled with a
+        *                         conflicting resolution.
         * @generated
         */
-        public function resolve(mixed $value): void;
+        public function resolve(TValue|\GuzzleHttp\Promise\PromiseInterface<TValue, TReason>|null $value = null): void;
         /**
         * Reject the promise with the given reason.
         *
-        * @param mixed $reason
-        * @throws \RuntimeException if the promise is already resolved.
+        * @param TReason $reason
+        * @throws \LogicException if the promise is already settled with a
+        *                         conflicting resolution.
         * @generated
         */
-        public function reject(mixed $reason): void;
+        public function reject(TReason $reason): void;
         /**
         * Cancels the promise if possible.
         *
@@ -336,7 +436,7 @@ namespace GuzzleHttp\Promise {
         * 
         * If the promise cannot be waited on, then the promise will be rejected.
         *
-        * @return mixed
+        * @return mixed ($unwrap is true ? TValue : null)
         * @throws \LogicException if the promise has no wait function or if the
         *                         promise does not settle after waiting.
         * @generated
@@ -346,12 +446,15 @@ namespace GuzzleHttp\Promise {
     /**
     * Interface used with classes that return a promise.
     *
+    * @template TValue
+    * @template TReason
     * @generated
     */
-    interface PromisorInterface {
+    interface PromisorInterface<TValue, TReason> {
         /**
         * Returns a promise.
         *
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
         public function promise(): \GuzzleHttp\Promise\PromiseInterface;
@@ -362,20 +465,40 @@ namespace GuzzleHttp\Promise {
     * Thenning off of this promise will invoke the onRejected callback
     * immediately and ignore other callbacks.
     *
+    * @template TValue
+    * @template TReason
+    * @implements PromiseInterface<TValue, TReason>
     * @final
     * @generated
     */
-    class RejectedPromise implements \GuzzleHttp\Promise\PromiseInterface {
+    class RejectedPromise<TValue, TReason> implements \GuzzleHttp\Promise\PromiseInterface {
         /**
-        * @param mixed $reason
+        * @param TReason $reason
         * @generated
         */
-        public function __construct(mixed $reason): void;
-        public function then(?callable $onFulfilled = null, ?callable $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
-        public function otherwise(callable $onRejected): \GuzzleHttp\Promise\PromiseInterface;
+        public function __construct(TReason $reason): void;
+        /**
+        * @template TFulfilledValue
+        * @template TFulfilledReason
+        * @template TRejectedValue
+        * @template TRejectedReason
+        * @param callable|null $onFulfilled Invoked when the promise fulfills.
+        * @param callable|null $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface ($onRejected is null ? self<TValue, TReason> : PromiseInterface<TRejectedValue, TRejectedReason|\Throwable>)
+        * @generated
+        */
+        public function then<TFulfilledValue, TFulfilledReason, TRejectedValue, TRejectedReason>(callable|null $onFulfilled = null, callable|null $onRejected = null): \GuzzleHttp\Promise\PromiseInterface;
+        /**
+        * @template TRejectedValue
+        * @template TRejectedReason
+        * @param callable $onRejected Invoked when the promise is rejected.
+        * @return \GuzzleHttp\Promise\PromiseInterface
+        * @generated
+        */
+        public function otherwise<TRejectedValue, TRejectedReason>(callable $onRejected): \GuzzleHttp\Promise\PromiseInterface;
         public function wait(bool $unwrap = true): mixed;
         public function getState(): string;
-        public function resolve(mixed $value): void;
+        public function resolve(mixed $value = null): void;
         public function reject(mixed $reason): void;
         public function cancel(): void;
     }
@@ -414,8 +537,13 @@ namespace GuzzleHttp\Promise {
     * @generated
     */
     class TaskQueue implements \GuzzleHttp\Promise\TaskQueueInterface {
+        use \GuzzleHttp\Promise\NonSerializableTrait;
         public function __construct(bool $withShutdown = true): void;
         public function isEmpty(): bool;
+        /**
+        * @param callable $task
+        * @generated
+        */
         public function add(callable $task): void;
         public function run(): void;
         /**
@@ -446,6 +574,7 @@ namespace GuzzleHttp\Promise {
         *
         * called.
         *
+        * @param callable $task
         * @generated
         */
         public function add(callable $task): void;
@@ -475,16 +604,18 @@ namespace GuzzleHttp\Promise {
         */
         public static function queue(?\GuzzleHttp\Promise\TaskQueueInterface $assign = null): \GuzzleHttp\Promise\TaskQueueInterface;
         /**
-        * Adds a function to run in the task queue when it is next `run()` and
+        * Adds a task to the global queue and returns a promise that is fulfilled
         *
-        * returns a promise that is fulfilled or rejected with the result.
+        * or rejected with the task result.
         *
+        * @template TValue
         * @param callable $task Task function to run.
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
-        public static function task(callable $task): \GuzzleHttp\Promise\PromiseInterface;
+        public static function task<TValue>(callable $task): \GuzzleHttp\Promise\PromiseInterface;
         /**
-        * Synchronously waits on a promise to resolve and returns an inspection
+        * Synchronously waits on a promise to settle and returns an inspection
         *
         * state array.
         * 
@@ -494,22 +625,30 @@ namespace GuzzleHttp\Promise {
         * promise. If the promise is rejected, the array will contain a "reason"
         * key mapping to the rejection reason of the promise.
         *
-        * @param \GuzzleHttp\Promise\PromiseInterface $promise Promise or value.
+        * @template TValue
+        * @template TReason
+        * @param \GuzzleHttp\Promise\PromiseInterface $promise Promise to inspect.
+        * @return array
         * @generated
         */
-        public static function inspect(\GuzzleHttp\Promise\PromiseInterface $promise): array;
+        public static function inspect<TValue, TReason>(\GuzzleHttp\Promise\PromiseInterface $promise): array;
         /**
         * Waits on all of the provided promises, but does not unwrap rejected
         *
-        * promises as thrown exception.
+        * promises as a thrown exception.
         * 
-        * Returns an array of inspection state arrays.
+        * Returns an array of inspection state arrays keyed like the input
+        * iterable.
         *
         * @see inspect for the inspection state array format.
-        * @param array<int, PromiseInterface> $promises Traversable of promises to wait upon.
+        * @template TKey of mixed
+        * @template TValue
+        * @template TReason
+        * @param iterable<TKey, PromiseInterface<TValue, TReason>> $promises Traversable of promises to wait upon.
+        * @return array<TKey, array>
         * @generated
         */
-        public static function inspectAll(array<int, \GuzzleHttp\Promise\PromiseInterface> $promises): array;
+        public static function inspectAll<TKey extends mixed, TValue, TReason>(iterable<TKey, \GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises): array<TKey, array>;
         /**
         * Waits on all of the provided promises and returns the fulfilled values.
         *
@@ -517,11 +656,15 @@ namespace GuzzleHttp\Promise {
         * order the promises were provided). An exception is thrown if any of the
         * promises are rejected.
         *
-        * @param iterable<PromiseInterface> $promises Iterable of PromiseInterface objects to wait on.
+        * @template TKey of mixed
+        * @template TValue
+        * @template TReason
+        * @param iterable<TKey, PromiseInterface<TValue, TReason>> $promises Iterable of PromiseInterface objects to wait on.
+        * @return array<TKey, TValue>
         * @throws \Throwable on error
         * @generated
         */
-        public static function unwrap(iterable<\GuzzleHttp\Promise\PromiseInterface> $promises): array;
+        public static function unwrap<TKey extends mixed, TValue, TReason>(iterable<TKey, \GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises): array<TKey, TValue>;
         /**
         * Given an array of promises, return a promise that is fulfilled when all
         *
@@ -530,12 +673,20 @@ namespace GuzzleHttp\Promise {
         * The promise's fulfillment value is an array with fulfillment values at
         * respective positions to the original array. If any promise in the array
         * rejects, the returned promise is rejected with the rejection reason.
+        * 
+        * The config array accepts a concurrency option for lazy iterables. Other
+        * config keys are ignored by this wrapper.
         *
-        * @param mixed $promises Promises or values.
-        * @param bool $recursive If true, resolves new promises that might have been added to the stack during its own resolution.
+        * @template TKey of mixed
+        * @template TValue
+        * @template TReason
+        * @param iterable<TKey, TValue|PromiseInterface<TValue, TReason>> $promises Promises or values.
+        * @param bool $recursive If true, resolves newly-added entries until no unprocessed entries or pending promises remain.
+        * @param array $config Configuration options.
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
-        public static function all(mixed $promises, bool $recursive = false): \GuzzleHttp\Promise\PromiseInterface;
+        public static function all<TKey extends mixed, TValue, TReason>(iterable<TKey, TValue|\GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises, bool $recursive = false, array $config = []): \GuzzleHttp\Promise\PromiseInterface;
         /**
         * Initiate a competitive race between multiple promises or values (values
         *
@@ -543,36 +694,52 @@ namespace GuzzleHttp\Promise {
         * 
         * When count amount of promises have been fulfilled, the returned promise
         * is fulfilled with an array that contains the fulfillment values of the
-        * winners in order of resolution.
+        * winners, in the order they appear in the input.
         * 
         * This promise is rejected with a {@see AggregateException} if the number
         * of fulfilled promises is less than the desired $count.
         *
+        * @template TValue
+        * @template TReason
         * @param int $count Total number of promises.
-        * @param mixed $promises Promises or values.
+        * @param iterable<TValue|PromiseInterface<TValue, TReason>> $promises Promises or values.
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
-        public static function some(int $count, mixed $promises): \GuzzleHttp\Promise\PromiseInterface;
+        public static function some<TValue, TReason>(int $count, iterable<TValue|\GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises): \GuzzleHttp\Promise\PromiseInterface;
         /**
         * Like some(), with 1 as count. However, if the promise fulfills, the
         *
         * fulfillment value is not an array of 1 but the value directly.
         *
-        * @param mixed $promises Promises or values.
+        * @template TValue
+        * @template TReason
+        * @param iterable<TValue|PromiseInterface<TValue, TReason>> $promises Promises or values.
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
-        public static function any(mixed $promises): \GuzzleHttp\Promise\PromiseInterface;
+        public static function any<TValue, TReason>(iterable<TValue|\GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises): \GuzzleHttp\Promise\PromiseInterface;
         /**
-        * Returns a promise that is fulfilled when all of the provided promises have
+        * Returns a promise that is fulfilled when all of the provided promises
         *
-        * been fulfilled or rejected.
+        * have been fulfilled or rejected.
         * 
-        * The returned promise is fulfilled with an array of inspection state arrays.
+        * The returned promise is fulfilled with an array of inspection state
+        * arrays.
+        * 
+        * The config array accepts a concurrency option for lazy iterables. Other
+        * config keys are ignored by this wrapper.
         *
         * @see inspect for the inspection state array format.
-        * @param mixed $promises Promises or values.
+        * @template TKey of mixed
+        * @template TValue
+        * @template TReason
+        * @param iterable<TKey, TValue|PromiseInterface<TValue, TReason>> $promises Promises or values.
+        * @param bool $recursive If true, settles newly-added entries until no unprocessed entries or pending promises remain.
+        * @param array $config Configuration options.
+        * @return \GuzzleHttp\Promise\PromiseInterface
         * @generated
         */
-        public static function settle(mixed $promises): \GuzzleHttp\Promise\PromiseInterface;
+        public static function settle<TKey extends mixed, TValue, TReason>(iterable<TKey, TValue|\GuzzleHttp\Promise\PromiseInterface<TValue, TReason>> $promises, bool $recursive = false, array $config = []): \GuzzleHttp\Promise\PromiseInterface;
     }
 }
